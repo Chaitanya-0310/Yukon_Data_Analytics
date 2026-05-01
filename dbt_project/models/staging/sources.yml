@@ -1,0 +1,65 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw data loaded from CIHI, PHAC, and Statistics Canada"
+    schema: raw
+    tables:
+      - name: cihi_acsc
+        description: >
+          CIHI Your Health System — Ambulatory Care Sensitive Conditions (ACSC)
+          hospitalizations by province/territory and fiscal year.
+          Age-standardized rates per 100,000 population.
+        columns:
+          - name: province_territory
+            description: "Province or territory name"
+          - name: time_frame
+            description: "Fiscal year range (e.g., 2022-2023)"
+          - name: age_standardized_rate
+            description: "ACSC hospitalization rate per 100,000, age-standardized"
+          - name: reporting_level
+            description: "Geographic reporting level (Health region, Province/territory, National)"
+
+      - name: statscan_population
+        description: >
+          Statistics Canada Table 17-10-0005-01 — Population estimates
+          on July 1st, by province/territory. Filtered to both sexes, all ages.
+        columns:
+          - name: ref_date
+            description: "Reference date (year as YYYY-01-01)"
+          - name: geo
+            description: "Province or territory name"
+          - name: value
+            description: "Population count"
+
+      - name: cihi_mental_health_readmissions
+        description: >
+          CIHI — 30-Day Readmission for Mental Health and Substance Use.
+          Risk-adjusted rates by province/territory and fiscal year.
+          Includes breakdowns by age group, sex, and urban/rural.
+        columns:
+          - name: province_territory
+            description: "Province or territory name"
+          - name: reporting_level
+            description: "Geographic reporting level (Health region, Province/territory, National)"
+          - name: time_frame
+            description: "Fiscal year range (e.g., 2022-2023)"
+          - name: risk_adjusted_rate
+            description: "Risk-adjusted 30-day readmission rate (%)"
+          - name: level_1_breakdown
+            description: "Breakdown category (Not applicable, Age group, Sex, Urban/Rural)"
+
+      - name: phac_ccdss_diabetes
+        description: >
+          PHAC Canadian Chronic Disease Surveillance System (CCDSS) —
+          Diabetes mellitus (types combined) age-standardized incidence rate
+          per 100,000 by province/territory and fiscal year.
+        columns:
+          - name: geography
+            description: "Province, territory, or Canada"
+          - name: fiscal_year
+            description: "Fiscal year range (e.g., 20222023)"
+          - name: rate_per_100000
+            description: "Age-standardized diabetes incidence rate per 100,000"
+          - name: sex
+            description: "Both sexes, Males, Females"

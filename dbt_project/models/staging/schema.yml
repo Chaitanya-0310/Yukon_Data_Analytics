@@ -1,0 +1,89 @@
+version: 2
+
+models:
+  - name: stg_cihi__acsc
+    description: >
+      Cleaned CIHI Ambulatory Care Sensitive Conditions indicator.
+      Filtered to province/territory and national level, with standardized
+      province codes and parsed fiscal years.
+    columns:
+      - name: prov_code
+        description: "Standard 2-letter province/territory code"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NL', 'PE', 'NS', 'NB', 'QC', 'ON', 'MB', 'SK', 'AB', 'BC', 'YT', 'NT', 'NU', 'CA']
+      - name: fiscal_year
+        description: "Fiscal year start (integer, e.g. 2022 for 2022-2023)"
+        tests:
+          - not_null
+      - name: age_standardized_rate
+        description: "ACSC rate per 100,000, age-standardized by CIHI"
+      - name: reporting_level
+        description: "Province/territory or National"
+        tests:
+          - accepted_values:
+              values: ['Province/territory', 'National']
+
+  - name: stg_statscan__population
+    description: >
+      Statistics Canada population estimates by province/territory and year.
+      Filtered to total population (both sexes, all ages).
+    columns:
+      - name: prov_code
+        description: "Standard 2-letter province/territory code"
+        tests:
+          - not_null
+      - name: ref_year
+        description: "Reference year for population estimate"
+        tests:
+          - not_null
+      - name: population
+        description: "Estimated population count"
+        tests:
+          - not_null
+
+  - name: stg_cihi__mental_health_readmissions
+    description: >
+      Cleaned CIHI 30-Day Readmission for Mental Health and Substance Use.
+      Filtered to province/territory and national level, overall rates only
+      (no demographic breakdowns). Risk-adjusted rate as percentage.
+    columns:
+      - name: prov_code
+        description: "Standard 2-letter province/territory code"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NL', 'PE', 'NS', 'NB', 'QC', 'ON', 'MB', 'SK', 'AB', 'BC', 'YT', 'NT', 'NU', 'CA']
+      - name: fiscal_year
+        description: "Fiscal year start (integer, e.g. 2022 for 2022-2023)"
+        tests:
+          - not_null
+      - name: risk_adjusted_rate
+        description: "Risk-adjusted 30-day readmission rate (%)"
+      - name: reporting_level
+        description: "Province/territory or National"
+        tests:
+          - accepted_values:
+              values: ['Province/territory', 'National']
+
+  - name: stg_phac__ccdss_diabetes
+    description: >
+      Cleaned PHAC CCDSS diabetes mellitus (types combined) incidence data.
+      Filtered to valid provinces/territories, both sexes, total age group.
+      Age-standardized rate per 100,000.
+    columns:
+      - name: prov_code
+        description: "Standard 2-letter province/territory code"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NL', 'PE', 'NS', 'NB', 'QC', 'ON', 'MB', 'SK', 'AB', 'BC', 'YT', 'NT', 'NU', 'CA']
+      - name: fiscal_year
+        description: "Fiscal year start (integer, e.g. 2000 for 2000-2001)"
+        tests:
+          - not_null
+      - name: age_standardized_rate
+        description: "Diabetes incidence rate per 100,000, age-standardized"
+        tests:
+          - not_null
