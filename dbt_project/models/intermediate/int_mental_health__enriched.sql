@@ -41,7 +41,9 @@ provincial as (
 national as (
     select
         fiscal_year,
-        risk_adjusted_rate as national_rate
+        risk_adjusted_rate as national_rate,
+        ci_lower as national_ci_lower,
+        ci_upper as national_ci_upper
     from mh
     where prov_code = 'CA'
 ),
@@ -51,6 +53,8 @@ with_national as (
     select
         p.*,
         n.national_rate,
+        n.national_ci_lower,
+        n.national_ci_upper,
         p.risk_adjusted_rate - n.national_rate as gap_to_national
     from provincial p
     left join national n on p.fiscal_year = n.fiscal_year
@@ -77,14 +81,21 @@ with_analytics as (
         avg(risk_adjusted_rate) over (
             partition by prov_code
             order by fiscal_year
-            rows between 2 preceding and current row
-        ) as rolling_avg_3yr,
+            rows between 2 preceding and 2 following
+        ) as rolling_avg_5yr_central,
 
         -- Rank: highest readmission rate = rank 1 (worst)
         rank() over (
             partition by fiscal_year
             order by risk_adjusted_rate desc
-        ) as rate_rank_desc
+        ) as rate_rank_desc,
+
+        -- Unified suppression flag (C-6)
+        case
+            when risk_adjusted_rate is null then true
+            when numerator is not null and numerator < 5 then true
+            else false
+        end as is_suppressed
 
     from with_national
 )

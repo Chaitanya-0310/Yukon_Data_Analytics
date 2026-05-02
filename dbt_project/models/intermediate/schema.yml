@@ -5,7 +5,8 @@ models:
     description: >
       Core linkage model — joins CIHI ACSC indicators with StatsCan
       population estimates on province code + year. Includes both
-      provincial and national rows.
+      provincial and national rows. Adds suppression flag and
+      cross-check rate from raw numerator.
     columns:
       - name: prov_code
         tests:
@@ -13,13 +14,28 @@ models:
       - name: fiscal_year
         tests:
           - not_null
+      - name: ci_lower
+        description: >
+          Lower bound of 95% CI for the age-standardized rate.
+          Passed through from CIHI source data. Calculated by CIHI
+          using the Tiwari modified gamma method for age-standardized rates.
+      - name: ci_upper
+        description: >
+          Upper bound of 95% CI for the age-standardized rate.
+          Passed through from CIHI source data.
+      - name: is_suppressed
+        description: >
+          Unified suppression flag. True if CIHI suppressed the rate
+          at source OR if numerator < 5 (small-cell suppression rule).
+          Territories with small populations are most affected.
       - name: population_linked
         description: "Whether StatsCan population was successfully joined"
 
   - name: int_health__year_over_year
     description: >
-      ACSC year-over-year analysis with change calculations, rolling averages,
-      gap-to-national, and provincial rankings.
+      ACSC year-over-year analysis with change calculations, 5-year central
+      moving average (matching Yukon Health Status Report methodology),
+      CI-based gap-to-national, and provincial rankings.
     columns:
       - name: prov_code
         tests:
@@ -30,11 +46,26 @@ models:
       - name: age_standardized_rate
         tests:
           - not_null
+      - name: rolling_avg_5yr_central
+        description: >
+          5-year central moving average of the age-standardized rate.
+          Window: 2 years preceding, current year, 2 years following.
+          Matches the methodology used in Yukon Health Status Reports (2022–2024).
+      - name: national_ci_lower
+        description: >
+          Lower bound of 95% CI for the national age-standardized rate.
+          Used to determine statistical significance of gap-to-national.
+      - name: national_ci_upper
+        description: >
+          Upper bound of 95% CI for the national age-standardized rate.
+      - name: is_suppressed
+        description: "Unified suppression flag passed through from indicators model"
 
   - name: int_mental_health__enriched
     description: >
       Mental health readmissions enriched with population, year-over-year
-      changes, national gap, rolling averages, and provincial rankings.
+      changes, national gap with CI bounds, 5-year central moving average,
+      and provincial rankings. Risk-adjusted rate is a percentage.
     columns:
       - name: prov_code
         tests:
@@ -43,12 +74,27 @@ models:
         tests:
           - not_null
       - name: risk_adjusted_rate
-        description: "Risk-adjusted 30-day readmission rate (%)"
+        description: >
+          Risk-adjusted 30-day readmission rate (%). Adjusted for
+          patient case-mix by CIHI using logistic regression.
+      - name: rolling_avg_5yr_central
+        description: >
+          5-year central moving average of the risk-adjusted rate.
+          Window: 2 years preceding, current year, 2 years following.
+      - name: national_ci_lower
+        description: "Lower bound of 95% CI for the national readmission rate"
+      - name: national_ci_upper
+        description: "Upper bound of 95% CI for the national readmission rate"
+      - name: is_suppressed
+        description: >
+          Unified suppression flag. True if rate is NULL at source
+          or numerator < 5 (CIHI small-cell rule).
 
   - name: int_diabetes__enriched
     description: >
       Diabetes incidence enriched with population, year-over-year changes,
-      national gap, rolling averages, and provincial rankings.
+      national gap with CI bounds, 5-year central moving average,
+      and provincial rankings. Uses PHAC CCDSS calendar years.
     columns:
       - name: prov_code
         tests:
@@ -57,4 +103,18 @@ models:
         tests:
           - not_null
       - name: age_standardized_rate
-        description: "Age-standardized diabetes incidence rate per 100,000"
+        description: >
+          Age-standardized diabetes incidence rate per 100,000.
+          Standardized to the 2011 Canadian population by PHAC.
+      - name: rolling_avg_5yr_central
+        description: >
+          5-year central moving average of the age-standardized rate.
+          Window: 2 years preceding, current year, 2 years following.
+      - name: national_ci_lower
+        description: "Lower bound of 95% CI for the national diabetes rate"
+      - name: national_ci_upper
+        description: "Upper bound of 95% CI for the national diabetes rate"
+      - name: is_suppressed
+        description: >
+          Unified suppression flag. True if rate is NULL at source
+          or case_counts < 10 (PHAC cell suppression rule, stricter than CIHI).

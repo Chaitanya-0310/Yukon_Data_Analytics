@@ -10,11 +10,13 @@ with indicators as (
     where age_standardized_rate is not null
 ),
 
--- Get national rate for each year
+-- Get national rate + CI for each year (A-2: needed for CI-based comparison)
 national_rates as (
     select
         fiscal_year,
-        age_standardized_rate as national_rate
+        age_standardized_rate as national_rate,
+        ci_lower as national_ci_lower,
+        ci_upper as national_ci_upper
     from indicators
     where prov_code = 'CA'
 ),
@@ -58,19 +60,24 @@ with_changes as (
             else null
         end as yoy_pct_change,
 
-        -- 3-year rolling average
+        -- 5-year central moving average (matches Yukon HSR methodology)
         round(
             avg(i.age_standardized_rate) over (
                 partition by i.prov_code
                 order by i.fiscal_year
-                rows between 2 preceding and current row
+                rows between 2 preceding and 2 following
             )::numeric,
             1
-        ) as rolling_avg_3yr,
+        ) as rolling_avg_5yr_central,
 
         -- Gap to national average
         n.national_rate,
+        n.national_ci_lower,
+        n.national_ci_upper,
         round((i.age_standardized_rate - coalesce(n.national_rate, 0))::numeric, 1) as gap_to_national,
+
+        -- Unified suppression flag (C-6)
+        i.is_suppressed,
 
         -- Rank among provinces for this year
         rank() over (

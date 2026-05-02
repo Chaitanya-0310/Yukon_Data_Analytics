@@ -6,7 +6,10 @@ models:
       Yukon-specific KPIs for the overview dashboard page.
       Combines three indicators: ACSC hospitalizations, mental health
       readmissions, and diabetes incidence. Each row is a fiscal year
-      with rates, national comparisons, and trends for all indicators.
+      with rates, CI-based national comparisons, and trends for all indicators.
+      Note: CIHI indicators use fiscal years (Apr–Mar); PHAC CCDSS uses
+      calendar years (Jan–Dec). Rows joining these indicators are approximate
+      temporal comparisons, not exact co-period measurements.
     columns:
       - name: prov_code
         tests:
@@ -26,16 +29,43 @@ models:
         tests:
           - accepted_values:
               values: ['Increasing', 'Decreasing', 'Stable']
+      - name: acsc_national_comparison
+        description: >
+          Statistical comparison to national rate using 95% CI bounds.
+          'Significantly Above/Below National' means the provincial rate
+          falls outside the national confidence interval.
+      - name: acsc_rolling_avg_5yr
+        description: "5-year central moving average of ACSC rate (matches Yukon HSR methodology)"
+      - name: acsc_is_suppressed
+        description: "True if ACSC rate is suppressed due to small cell size"
       - name: mh_readmission_rate
         description: "Risk-adjusted 30-day mental health readmission rate (%)"
+      - name: mh_national_comparison
+        description: "CI-based statistical comparison to national MH readmission rate"
+      - name: mh_rolling_avg_5yr
+        description: "5-year central moving average of MH readmission rate"
+      - name: mh_is_suppressed
+        description: "True if MH rate is suppressed due to small cell size"
       - name: diabetes_incidence_rate
         description: "Age-standardized diabetes incidence rate per 100,000"
+      - name: diabetes_national_comparison
+        description: "CI-based statistical comparison to national diabetes rate"
+      - name: diabetes_rolling_avg_5yr
+        description: "5-year central moving average of diabetes incidence rate"
+      - name: diabetes_is_suppressed
+        description: "True if diabetes rate is suppressed due to small cell size"
+      - name: cross_year_type_join_flag
+        description: >
+          Always true. Indicates that this mart joins fiscal-year (CIHI)
+          and calendar-year (PHAC) data. Interpret cross-indicator
+          comparisons within the same row as approximate temporal alignment.
 
   - name: mart_dashboard__provincial_comparison
     description: >
       All provinces/territories for the comparison dashboard page.
-      Unions three indicators with region grouping, rankings, and
-      Yukon highlight flags. Use indicator_name to filter.
+      Unions three indicators with region grouping, CI-based national
+      comparison, rankings, and Yukon highlight flags. Use indicator_name
+      to filter. Includes year_type to flag fiscal vs calendar year data.
     columns:
       - name: prov_code
         tests:
@@ -49,11 +79,22 @@ models:
           - not_null
           - accepted_values:
               values: ['ACSC Hospitalizations', 'Mental Health Readmissions', 'Diabetes Incidence']
+      - name: year_type
+        description: "'fiscal' for CIHI indicators, 'calendar' for PHAC CCDSS"
+      - name: national_comparison
+        description: >
+          CI-based statistical comparison to national rate.
+          Uses national 95% CI bounds to determine significance.
+      - name: rolling_avg_5yr_central
+        description: "5-year central moving average (matches Yukon HSR methodology)"
+      - name: is_suppressed
+        description: "Unified suppression flag — true if rate should not be displayed"
 
   - name: mart_dashboard__trend_analysis
     description: >
       Time series for Yukon, territories, and national benchmark
       across all three indicators. Optimized for trend charts.
+      Includes CI bounds for error band visualization.
     columns:
       - name: prov_code
         tests:
@@ -67,3 +108,16 @@ models:
       - name: indicator_name
         tests:
           - not_null
+      - name: ci_lower
+        description: >
+          Lower bound of 95% confidence interval. Methodology varies by source:
+          CIHI uses Tiwari modified gamma method for age-standardized rates and
+          Wilson score for proportions. PHAC uses Tiwari modified gamma.
+          Suppressed (NULL) when source applies cell suppression rules.
+      - name: ci_upper
+        description: >
+          Upper bound of 95% confidence interval. See ci_lower for methodology.
+      - name: year_type
+        description: "'fiscal' for CIHI indicators, 'calendar' for PHAC CCDSS diabetes"
+      - name: is_suppressed
+        description: "Unified suppression flag — true if rate should be treated with caution"

@@ -13,6 +13,7 @@ with acsc_trends as (
         age_standardized_rate as rate_value,
         ci_lower,
         ci_upper,
+        is_suppressed,
         statscan_population as population,
         case
             when prov_code = 'YT' then 'Yukon'
@@ -21,7 +22,8 @@ with acsc_trends as (
         end as series_name,
         prov_code,
         'ACSC Hospitalizations' as indicator_name,
-        'per 100,000' as rate_unit
+        'per 100,000' as rate_unit,
+        'fiscal' as year_type
     from {{ ref('int_health__indicators_with_population') }}
     where prov_code in ('YT', 'CA', 'NT', 'NU')
       and age_standardized_rate is not null
@@ -34,6 +36,7 @@ mh_trends as (
         risk_adjusted_rate as rate_value,
         ci_lower,
         ci_upper,
+        is_suppressed,
         statscan_population as population,
         case
             when prov_code = 'YT' then 'Yukon'
@@ -41,7 +44,8 @@ mh_trends as (
         end as series_name,
         prov_code,
         'Mental Health Readmissions' as indicator_name,
-        '%' as rate_unit
+        '%' as rate_unit,
+        'fiscal' as year_type
     from {{ ref('int_mental_health__enriched') }}
     where prov_code in ('YT', 'CA', 'NT', 'NU')
       and risk_adjusted_rate is not null
@@ -54,6 +58,7 @@ diabetes_trends as (
         age_standardized_rate as rate_value,
         ci_lower,
         ci_upper,
+        is_suppressed,
         statscan_population as population,
         case
             when prov_code = 'YT' then 'Yukon'
@@ -62,7 +67,8 @@ diabetes_trends as (
         end as series_name,
         prov_code,
         'Diabetes Incidence' as indicator_name,
-        'per 100,000' as rate_unit
+        'per 100,000' as rate_unit,
+        'calendar' as year_type
     from {{ ref('int_diabetes__enriched') }}
     where prov_code in ('YT', 'CA', 'NT', 'NU')
       and age_standardized_rate is not null

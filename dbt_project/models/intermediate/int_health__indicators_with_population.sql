@@ -79,11 +79,12 @@ select
         else null
     end as calculated_rate_per_100k,
 
-    -- Flag: is the CIHI rate available or was it suppressed?
+    -- Unified suppression flag: source suppressed OR small-cell rule (n < 5)
     case
-        when age_standardized_rate is not null then false
-        else true
-    end as rate_suppressed,
+        when age_standardized_rate is null then true   -- source already suppressed
+        when numerator is not null and numerator < 5 then true  -- small-cell suppression
+        else false
+    end as is_suppressed,
 
     -- Flag: did population join succeed?
     case
