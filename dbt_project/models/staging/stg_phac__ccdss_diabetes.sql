@@ -72,7 +72,9 @@ cleaned as (
         upper_95pct_ci as ci_upper,
         standard_error,
         case_counts,
-        population as phac_population
+        population as phac_population,
+
+        'calendar' as year_type  -- PHAC CCDSS uses calendar years (Jan–Dec)
 
     from filtered
 )

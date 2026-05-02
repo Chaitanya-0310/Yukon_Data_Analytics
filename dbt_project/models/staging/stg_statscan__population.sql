@@ -35,7 +35,9 @@ cleaned as (
         -- Extract year from REF_DATE (format: '2019-01-01' or '2019')
         cast(left(ref_date, 4) as integer) as ref_year,
 
-        cast(value as double precision) as population
+        cast(value as double precision) as population,
+
+        'calendar' as year_type  -- StatsCan uses calendar years (Jan–Dec)
 
     from source
     where value is not null

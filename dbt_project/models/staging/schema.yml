@@ -5,10 +5,10 @@ models:
     description: >
       Cleaned CIHI Ambulatory Care Sensitive Conditions indicator.
       Filtered to province/territory and national level, with standardized
-      province codes and parsed fiscal years.
+      province codes and parsed fiscal years. CIHI uses fiscal years (Apr 1 – Mar 31).
     columns:
       - name: prov_code
-        description: "Standard 2-letter province/territory code"
+        description: "Standard 2-letter province/territory code (CA for national)"
         tests:
           - not_null
           - accepted_values:
@@ -19,38 +19,53 @@ models:
           - not_null
       - name: age_standardized_rate
         description: "ACSC rate per 100,000, age-standardized by CIHI"
+      - name: ci_lower
+        description: >
+          Lower bound of 95% confidence interval for the age-standardized rate.
+          Calculated by CIHI using the Tiwari modified gamma method for age-standardized rates.
+          Source: CIHI methodology documentation.
+      - name: ci_upper
+        description: >
+          Upper bound of 95% confidence interval for the age-standardized rate.
+          Calculated by CIHI using the Tiwari modified gamma method.
       - name: reporting_level
         description: "Province/territory or National"
         tests:
           - accepted_values:
               values: ['Province/territory', 'National']
+      - name: year_type
+        description: "'fiscal' — CIHI reports on fiscal years (April 1 – March 31)"
 
   - name: stg_statscan__population
     description: >
       Statistics Canada population estimates by province/territory and year.
-      Filtered to total population (both sexes, all ages).
+      Filtered to total population (both sexes, all ages). Table 17-10-0005-01.
+      Uses calendar years (Jan 1 – Dec 31).
     columns:
       - name: prov_code
         description: "Standard 2-letter province/territory code"
         tests:
           - not_null
       - name: ref_year
-        description: "Reference year for population estimate"
+        description: "Reference calendar year for population estimate"
         tests:
           - not_null
       - name: population
         description: "Estimated population count"
         tests:
           - not_null
+      - name: year_type
+        description: "'calendar' — StatsCan reports on calendar years (January – December)"
 
   - name: stg_cihi__mental_health_readmissions
     description: >
       Cleaned CIHI 30-Day Readmission for Mental Health and Substance Use.
       Filtered to province/territory and national level, overall rates only
       (no demographic breakdowns). Risk-adjusted rate as percentage.
+      CIHI uses fiscal years (Apr 1 – Mar 31).
     columns:
       - name: prov_code
-        description: "Standard 2-letter province/territory code"
+        description: "Standard 2-letter province/territory code (CA for national)"
         tests:
           - not_null
           - accepted_values:
@@ -60,30 +75,55 @@ models:
         tests:
           - not_null
       - name: risk_adjusted_rate
-        description: "Risk-adjusted 30-day readmission rate (%)"
+        description: >
+          Risk-adjusted 30-day readmission rate (%). Adjusted for patient case-mix
+          by CIHI using logistic regression. Source: CIHI Your Health System methodology.
+      - name: ci_lower
+        description: >
+          Lower bound of 95% confidence interval for the risk-adjusted rate.
+          Calculated by CIHI. For proportions, uses Wilson score method.
+      - name: ci_upper
+        description: >
+          Upper bound of 95% confidence interval for the risk-adjusted rate.
+          Calculated by CIHI. For proportions, uses Wilson score method.
       - name: reporting_level
         description: "Province/territory or National"
         tests:
           - accepted_values:
               values: ['Province/territory', 'National']
+      - name: year_type
+        description: "'fiscal' — CIHI reports on fiscal years (April 1 – March 31)"
 
   - name: stg_phac__ccdss_diabetes
     description: >
       Cleaned PHAC CCDSS diabetes mellitus (types combined) incidence data.
       Filtered to valid provinces/territories, both sexes, total age group.
-      Age-standardized rate per 100,000.
+      Age-standardized rate per 100,000. PHAC CCDSS uses calendar years (Jan – Dec).
     columns:
       - name: prov_code
-        description: "Standard 2-letter province/territory code"
+        description: "Standard 2-letter province/territory code (CA for national)"
         tests:
           - not_null
           - accepted_values:
               values: ['NL', 'PE', 'NS', 'NB', 'QC', 'ON', 'MB', 'SK', 'AB', 'BC', 'YT', 'NT', 'NU', 'CA']
       - name: fiscal_year
-        description: "Fiscal year start (integer, e.g. 2000 for 2000-2001)"
+        description: "Calendar year (integer, e.g. 2022 for Jan–Dec 2022)"
         tests:
           - not_null
       - name: age_standardized_rate
-        description: "Diabetes incidence rate per 100,000, age-standardized"
+        description: >
+          Age-standardized diabetes incidence rate per 100,000. Standardized
+          to the 2011 Canadian population by PHAC. Source: CCDSS methodology.
         tests:
           - not_null
+      - name: ci_lower
+        description: >
+          Lower bound of 95% confidence interval for the age-standardized rate.
+          Calculated by PHAC using the Tiwari modified gamma method.
+          Suppressed (NULL) when coefficient of variation > 33.3% or case counts < 10.
+      - name: ci_upper
+        description: >
+          Upper bound of 95% confidence interval for the age-standardized rate.
+          Calculated by PHAC using the Tiwari modified gamma method.
+      - name: year_type
+        description: "'calendar' — PHAC CCDSS reports on calendar years (January – December)"

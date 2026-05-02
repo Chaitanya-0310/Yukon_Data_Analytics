@@ -83,7 +83,9 @@ cleaned as (
         case
             when trim(crude_rate) in ('-', '–', 'Suppressed', '') or crude_rate is null then null
             else cast(replace(crude_rate, ',', '') as double precision)
-        end as crude_rate
+        end as crude_rate,
+
+        'fiscal' as year_type  -- CIHI uses fiscal years (Apr 1 – Mar 31)
 
     from filtered
 )
