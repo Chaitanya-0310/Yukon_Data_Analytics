@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: int_health__indicators_with_population
+    description: >
+      Core linkage model — joins CIHI ACSC indicators with StatsCan
+      population estimates on province code + year. Includes both
+      provincial and national rows.
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+      - name: fiscal_year
+        tests:
+          - not_null
+      - name: population_linked
+        description: "Whether StatsCan population was successfully joined"
+
+  - name: int_health__year_over_year
+    description: >
+      ACSC year-over-year analysis with change calculations, rolling averages,
+      gap-to-national, and provincial rankings.
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+      - name: fiscal_year
+        tests:
+          - not_null
+      - name: age_standardized_rate
+        tests:
+          - not_null
+
+  - name: int_mental_health__enriched
+    description: >
+      Mental health readmissions enriched with population, year-over-year
+      changes, national gap, rolling averages, and provincial rankings.
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+      - name: fiscal_year
+        tests:
+          - not_null
+      - name: risk_adjusted_rate
+        description: "Risk-adjusted 30-day readmission rate (%)"
+
+  - name: int_diabetes__enriched
+    description: >
+      Diabetes incidence enriched with population, year-over-year changes,
+      national gap, rolling averages, and provincial rankings.
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+      - name: fiscal_year
+        tests:
+          - not_null
+      - name: age_standardized_rate
+        description: "Age-standardized diabetes incidence rate per 100,000"
