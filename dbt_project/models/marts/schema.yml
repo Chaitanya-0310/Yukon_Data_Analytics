@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: mart_dashboard__yukon_overview
+    description: >
+      Yukon-specific KPIs for the overview dashboard page.
+      Combines three indicators: ACSC hospitalizations, mental health
+      readmissions, and diabetes incidence. Each row is a fiscal year
+      with rates, national comparisons, and trends for all indicators.
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['YT']
+      - name: fiscal_year
+        tests:
+          - not_null
+          - unique
+      - name: acsc_rate
+        description: "Age-standardized ACSC rate per 100,000"
+      - name: acsc_national_rate
+        description: "National average ACSC rate for the same year"
+      - name: acsc_trend_direction
+        description: "Increasing, Decreasing, or Stable vs prior year"
+        tests:
+          - accepted_values:
+              values: ['Increasing', 'Decreasing', 'Stable']
+      - name: mh_readmission_rate
+        description: "Risk-adjusted 30-day mental health readmission rate (%)"
+      - name: diabetes_incidence_rate
+        description: "Age-standardized diabetes incidence rate per 100,000"
+
+  - name: mart_dashboard__provincial_comparison
+    description: >
+      All provinces/territories for the comparison dashboard page.
+      Unions three indicators with region grouping, rankings, and
+      Yukon highlight flags. Use indicator_name to filter.
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+      - name: fiscal_year
+        tests:
+          - not_null
+      - name: indicator_name
+        description: "ACSC Hospitalizations, Mental Health Readmissions, or Diabetes Incidence"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['ACSC Hospitalizations', 'Mental Health Readmissions', 'Diabetes Incidence']
+
+  - name: mart_dashboard__trend_analysis
+    description: >
+      Time series for Yukon, territories, and national benchmark
+      across all three indicators. Optimized for trend charts.
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+      - name: fiscal_year
+        tests:
+          - not_null
+      - name: rate_value
+        tests:
+          - not_null
+      - name: indicator_name
+        tests:
+          - not_null
