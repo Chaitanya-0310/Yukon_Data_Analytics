@@ -1,0 +1,22 @@
+# Data loading
+pandas>=1.5.0
+openpyxl>=3.1.0
+
+# Statistics Canada API
+stats-can>=2.5.0
+
+# Database (Supabase / PostgreSQL)
+psycopg2-binary>=2.9.0
+sqlalchemy>=1.4.0
+python-dotenv>=1.0.0
+
+# dbt pipeline
+dbt-postgres>=1.7.0
+
+# Dashboard
+streamlit>=1.28.0
+plotly>=5.18.0
+
+# Forecasting / ML
+statsmodels>=0.13.0
+numpy>=1.21.0
