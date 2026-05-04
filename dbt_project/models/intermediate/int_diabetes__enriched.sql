@@ -95,7 +95,26 @@ with_analytics as (
             when age_standardized_rate is null then true
             when case_counts is not null and case_counts < 10 then true  -- PHAC threshold is <10
             else false
-        end as is_suppressed
+        end as is_suppressed,
+
+        -- C-2: Remote access / underdiagnosis caveat for Yukon
+        -- Published literature (Ng et al. 2010; CCDSS 20-year review 2019) documents that
+        -- CCDSS rates in territories may underestimate true prevalence due to lower physician
+        -- contact rates and fewer administrative health records in remote communities.
+        case
+            when prov_code = 'YT' then true
+            else false
+        end as apply_remote_access_caveat,
+
+        case
+            when prov_code = 'YT'
+            then 'Yukon diabetes rate may underestimate true prevalence. ' ||
+                 'Remote community residents have lower rates of physician contact ' ||
+                 'and fewer administrative records, which can suppress CCDSS detection. ' ||
+                 'Interpret as a floor estimate, not a confirmed lower burden. ' ||
+                 'Source: Ng et al. (2010), CCDSS 20-year review (2019).'
+            else null
+        end as remote_access_interpretation_note
 
     from with_national
 )

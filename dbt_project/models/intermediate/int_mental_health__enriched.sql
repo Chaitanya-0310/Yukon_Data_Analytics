@@ -95,7 +95,23 @@ with_analytics as (
             when risk_adjusted_rate is null then true
             when numerator is not null and numerator < 5 then true
             else false
-        end as is_suppressed
+        end as is_suppressed,
+
+        -- C-1: Substance use emergency overlap context
+        -- Yukon declared a Substance Use Health Emergency on Jan 20, 2022.
+        -- MH readmissions are partly driven by substance use comorbidity post-declaration.
+        case
+            when fiscal_year >= 2022 then true
+            else false
+        end as is_emergency_overlap_period,
+
+        case
+            when fiscal_year >= 2022
+            then 'Post-emergency declaration period (Yukon Substance Use Health Emergency, Jan 2022). ' ||
+                 'MH readmission rates may be partly influenced by substance use comorbidity. ' ||
+                 'Interpret alongside opioid and stimulant harm indicators.'
+            else null
+        end as interpretation_note
 
     from with_national
 )

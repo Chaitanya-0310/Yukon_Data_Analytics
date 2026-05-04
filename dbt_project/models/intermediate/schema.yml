@@ -89,6 +89,16 @@ models:
         description: >
           Unified suppression flag. True if rate is NULL at source
           or numerator < 5 (CIHI small-cell rule).
+      - name: is_emergency_overlap_period
+        description: >
+          True for fiscal years >= 2022. Yukon declared a Substance Use Health
+          Emergency on January 20, 2022. MH readmission rates in this period
+          are partly influenced by substance use comorbidity and should be
+          interpreted alongside opioid and stimulant harm indicators.
+      - name: interpretation_note
+        description: >
+          Contextual note for dashboard display. Non-null for post-emergency
+          years, flagging the MH-substance use comorbidity relationship.
 
   - name: int_diabetes__enriched
     description: >
@@ -118,6 +128,18 @@ models:
         description: >
           Unified suppression flag. True if rate is NULL at source
           or case_counts < 10 (PHAC cell suppression rule, stricter than CIHI).
+      - name: apply_remote_access_caveat
+        description: >
+          True for Yukon (YT) rows. CCDSS rates in territories may underestimate
+          true prevalence due to lower physician contact rates and fewer
+          administrative records in remote communities. Source: Ng et al. (2010),
+          CCDSS 20-year review (2019). Interpret Yukon diabetes rate as a floor
+          estimate, not a confirmed lower burden.
+      - name: remote_access_interpretation_note
+        description: >
+          Full interpretive caveat for Yukon rows. NULL for all other provinces.
+          Surfaces in dashboard wherever Yukon diabetes rate is shown as
+          "Below National" to prevent misleading positive interpretation.
 
   - name: int_substance__enriched
     description: >
@@ -152,3 +174,37 @@ models:
           Health Emergency on January 20, 2022.
       - name: is_suppressed
         description: "True if PHAC suppressed the rate (typically deaths < 5)"
+
+  - name: int_communicable__enriched
+    description: >
+      Communicable disease data enriched with outbreak detection, YoY changes,
+      5-year central moving average, national benchmark comparison, and
+      provincial ranking. Implements statistical outbreak signal (mean + 2×SD)
+      used in public health surveillance systems.
+    columns:
+      - name: disease
+        tests:
+          - not_null
+      - name: ref_year
+        tests:
+          - not_null
+      - name: prov_code
+        tests:
+          - not_null
+      - name: rate_per_100k
+        description: "Crude rate per 100,000 population"
+        tests:
+          - not_null
+      - name: is_outbreak_signal
+        description: >
+          True when rate exceeds 5-year central moving average plus 2 standard
+          deviations. Implements statistical process control (SPC) approach used
+          in communicable disease surveillance. Only calculated for national
+          time series data (sufficient data points for reliable statistics).
+      - name: outbreak_z_score
+        description: >
+          Number of standard deviations the current rate is above (positive)
+          or below (negative) the 5-year central moving average. Values > 2.0
+          trigger the outbreak signal. Higher values indicate more extreme departures.
+      - name: is_suppressed
+        description: "True if case count < 5 (PHAC cell suppression rule)"

@@ -89,6 +89,24 @@ models:
         description: "5-year central moving average (matches Yukon HSR methodology)"
       - name: is_suppressed
         description: "Unified suppression flag — true if rate should not be displayed"
+      - name: rank_polarity
+        description: >
+          Always 'lower_is_better' for all three indicators (ACSC, MH Readmissions,
+          Diabetes Incidence). All three indicators represent health system burdens
+          where a lower rate indicates a better population health outcome.
+      - name: outcome_rank
+        description: >
+          Health outcome rank where 1 = best provincial outcome (14 - national_rank).
+          Inverts national_rank for lower_is_better indicators so that the province
+          with the lowest rate (best outcome) is ranked #1. Range: 1–13.
+      - name: burden_category
+        description: >
+          Clinical burden classification based on national ranking position.
+          'High Burden' (national_rank 1-3), 'Moderate Burden' (4-10),
+          'Low Burden' (national_rank 11-13).
+        tests:
+          - accepted_values:
+              values: ['High Burden', 'Moderate Burden', 'Low Burden']
 
   - name: mart_dashboard__trend_analysis
     description: >
@@ -165,3 +183,46 @@ models:
         description: "'Baseline' (pre-2019), 'Pre-Emergency' (2019-2021), 'Post-Emergency' (2022+)"
       - name: is_suppressed
         description: "True if PHAC suppressed the rate"
+
+  - name: mart_dashboard__communicable_disease
+    description: >
+      Communicable disease surveillance dashboard. National time series
+      (2000-2023) with provincial snapshots (2019, 2021, 2023) for STIs
+      and enteric diseases. Features statistical outbreak detection
+      (mean + 2×SD alarm), disease burden ranking, and provincial
+      comparison with Yukon highlight. Uses calendar years.
+    columns:
+      - name: disease
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Chlamydia', 'Gonorrhea', 'Infectious Syphilis', 'Giardiasis', 'Salmonellosis']
+      - name: ref_year
+        tests:
+          - not_null
+      - name: prov_code
+        tests:
+          - not_null
+      - name: rate_per_100k
+        description: "Crude rate per 100,000 population"
+        tests:
+          - not_null
+      - name: is_outbreak_signal
+        description: >
+          Statistical outbreak alarm. True when national rate exceeds
+          5-year central mean + 2 standard deviations. Implements
+          epidemiological surveillance control chart logic.
+      - name: outbreak_z_score
+        description: "Standard deviations above 5-year central mean. >2.0 triggers alarm."
+      - name: outbreak_status_label
+        description: "'Severe Outbreak' (z>=3), 'Outbreak Detected' (z>=2), 'Elevated' (z>=1), 'Normal Range'"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Severe Outbreak', 'Outbreak Detected', 'Elevated', 'Normal Range']
+      - name: disease_category
+        description: "'Sexually Transmitted Infection' or 'Enteric / Foodborne'"
+        tests:
+          - not_null
+      - name: is_suppressed
+        description: "True if case count below suppression threshold"

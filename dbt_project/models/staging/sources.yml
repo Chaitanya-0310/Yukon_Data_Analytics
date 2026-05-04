@@ -89,3 +89,46 @@ sources:
             description: "Crude rate, Number, or Percent"
           - name: value
             description: "The metric value"
+
+      - name: phac_cndss_national
+        description: >
+          PHAC Canadian Notifiable Disease Surveillance System (CNDSS) —
+          National-level reported cases and crude rates per 100,000 for
+          notifiable communicable diseases. Male/Female split, all ages.
+          Diseases: Chlamydia, Giardiasis, Gonorrhea, Salmonellosis, Syphilis.
+          Calendar years 1991–2023.
+        columns:
+          - name: year
+            description: "Calendar year (integer)"
+          - name: disease
+            description: "Disease name (Chlamydia, Giardiasis, Gonorrhea, Salmonellosis, Syphilis)"
+          - name: age_group
+            description: "Age group (All)"
+          - name: sex
+            description: "Male or Female"
+          - name: number_of_reported_cases
+            description: "Count of reported cases for this disease/sex/year"
+          - name: rate_per_100_000
+            description: "Sex-specific crude rate per 100,000 population"
+
+      - name: phac_cndss_provincial
+        description: >
+          PHAC CNDSS STI provincial/territorial data extracted from PHAC
+          surveillance reports (2019, 2021, 2023). Covers Chlamydia, Gonorrhea,
+          Infectious Syphilis with rates per 100,000 by province/territory.
+          Source reports: PHAC STI Surveillance Data Updates.
+        columns:
+          - name: disease
+            description: "Disease name (Chlamydia, Gonorrhea, Infectious Syphilis)"
+          - name: year
+            description: "Calendar year (integer)"
+          - name: region
+            description: "Province/territory full name or Canada"
+          - name: prov_code
+            description: "Standard 2-letter province/territory code (CA for national)"
+          - name: cases
+            description: "Number of reported cases (may be null for 2019 data)"
+          - name: rate_per_100k
+            description: "Crude rate per 100,000 population"
+          - name: source_report
+            description: "Source report identifier"

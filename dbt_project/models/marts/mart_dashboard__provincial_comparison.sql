@@ -104,7 +104,23 @@ with_flags as (
         end as national_comparison,
 
         case when c.prov_code = 'YT' then true else false end as is_yukon,
-        case when c.prov_code in ('YT', 'NT', 'NU') then true else false end as is_territory
+        case when c.prov_code in ('YT', 'NT', 'NU') then true else false end as is_territory,
+
+        -- C-4: Rank polarity — all three indicators are "lower_is_better"
+        -- national_rank is always 1 = highest rate (may be worst or best depending on indicator)
+        -- outcome_rank is 1 = best health outcome (inverted for lower_is_better indicators)
+        'lower_is_better' as rank_polarity,
+
+        -- outcome_rank: 1 = best provincial outcome. Total of 13 provinces/territories.
+        -- For lower_is_better: outcome_rank = 14 - national_rank
+        (14 - c.national_rank) as outcome_rank,
+
+        -- burden_category: clinical burden classification based on national ranking
+        case
+            when c.national_rank <= 3  then 'High Burden'
+            when c.national_rank >= 11 then 'Low Burden'
+            else 'Moderate Burden'
+        end as burden_category
 
     from combined c
 )

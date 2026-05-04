@@ -163,3 +163,34 @@ models:
           - not_null
       - name: year_type
         description: "'calendar' — PHAC substance harms uses calendar years"
+
+  - name: stg_phac__cndss
+    description: >
+      Cleaned PHAC CNDSS communicable disease data. Combines national time
+      series (2000-2023, aggregated from Male+Female) with provincial snapshots
+      (2019, 2021, 2023). Diseases: Chlamydia, Gonorrhea, Infectious Syphilis,
+      Giardiasis, Salmonellosis. Uses calendar years (Jan-Dec).
+    columns:
+      - name: disease
+        description: "Disease name (standardized)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Chlamydia', 'Gonorrhea', 'Infectious Syphilis', 'Giardiasis', 'Salmonellosis']
+      - name: ref_year
+        description: "Calendar year (integer)"
+        tests:
+          - not_null
+      - name: prov_code
+        description: "Standard 2-letter province/territory code (CA for national)"
+        tests:
+          - not_null
+      - name: rate_per_100k
+        description: >
+          Crude rate per 100,000 population. National rates recalculated from
+          summed Male+Female case counts divided by StatsCan total population.
+          Provincial rates are PHAC-published values from surveillance reports.
+        tests:
+          - not_null
+      - name: year_type
+        description: "'calendar' — CNDSS uses calendar years"
