@@ -118,3 +118,37 @@ models:
         description: >
           Unified suppression flag. True if rate is NULL at source
           or case_counts < 10 (PHAC cell suppression rule, stricter than CIHI).
+
+  - name: int_substance__enriched
+    description: >
+      Substance use harms enriched with YoY changes, rolling averages,
+      Yukon-vs-Canada ratio, emergency period flag, and provincial rankings.
+      Partitioned by substance (Opioids/Stimulants) and harm type (Deaths/ED/Hosp).
+      Uses 3-year trailing average (only ~9 years of data).
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+      - name: ref_year
+        tests:
+          - not_null
+      - name: substance
+        tests:
+          - not_null
+      - name: harm_type
+        tests:
+          - not_null
+      - name: crude_rate_per_100k
+        description: >
+          Crude rate of substance-related harms per 100,000 population.
+          Pre-calculated by PHAC. Not age-standardized.
+      - name: yukon_vs_canada_ratio
+        description: >
+          Ratio of provincial rate to national rate. Values > 1.0 indicate
+          the province has a higher rate than the national average.
+      - name: is_emergency_period
+        description: >
+          True for all years >= 2022. Yukon declared a Substance Use
+          Health Emergency on January 20, 2022.
+      - name: is_suppressed
+        description: "True if PHAC suppressed the rate (typically deaths < 5)"

@@ -121,3 +121,47 @@ models:
         description: "'fiscal' for CIHI indicators, 'calendar' for PHAC CCDSS diabetes"
       - name: is_suppressed
         description: "Unified suppression flag — true if rate should be treated with caution"
+
+  - name: mart_dashboard__substance_harms
+    description: >
+      Substance use harms dashboard table. All provinces with opioid and
+      stimulant harm data (deaths, ED visits, hospitalizations).
+      Includes Yukon-vs-Canada ratio, emergency period flags, severity
+      classification, and summary statistics. Uses calendar years.
+      Terminology follows PHAC/Yukon Coroner convention: "apparent
+      toxicity death" rather than "overdose".
+    columns:
+      - name: prov_code
+        tests:
+          - not_null
+      - name: ref_year
+        tests:
+          - not_null
+      - name: substance
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Opioids', 'Stimulants']
+      - name: harm_type_label
+        description: "Human-readable harm type: Apparent Toxicity Deaths, ED Visits, Hospitalizations, EMS Responses"
+        tests:
+          - not_null
+      - name: indicator_label
+        description: "Combined label e.g. 'Opioids — Apparent Toxicity Deaths'"
+        tests:
+          - not_null
+      - name: crude_rate_per_100k
+        description: "Crude rate per 100,000 population, pre-calculated by PHAC"
+        tests:
+          - not_null
+      - name: severity_vs_national
+        description: >
+          Severity classification based on Yukon-to-Canada ratio:
+          Crisis Level (>=2.0x), Severely Elevated (>=1.5x),
+          Above National (>=1.0x), Below National (<1.0x).
+      - name: is_emergency_period
+        description: "True for years >= 2022 (post Yukon substance use health emergency declaration)"
+      - name: emergency_period_label
+        description: "'Baseline' (pre-2019), 'Pre-Emergency' (2019-2021), 'Post-Emergency' (2022+)"
+      - name: is_suppressed
+        description: "True if PHAC suppressed the rate"

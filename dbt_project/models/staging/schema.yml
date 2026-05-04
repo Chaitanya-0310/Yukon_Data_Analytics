@@ -127,3 +127,39 @@ models:
           Calculated by PHAC using the Tiwari modified gamma method.
       - name: year_type
         description: "'calendar' — PHAC CCDSS reports on calendar years (January – December)"
+
+  - name: stg_phac__substance_harms
+    description: >
+      Cleaned PHAC Health Infobase opioid- and stimulant-related harms data.
+      Filtered to overall numbers, crude rates per 100,000, annual data only.
+      Excludes sub-provincial regions. Uses calendar years.
+      Terminology: "apparent toxicity death" per PHAC/Yukon Coroner convention.
+    columns:
+      - name: prov_code
+        description: "Standard 2-letter province/territory code (CA for national)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NL', 'PE', 'NS', 'NB', 'QC', 'ON', 'MB', 'SK', 'AB', 'BC', 'YT', 'NT', 'NU', 'CA']
+      - name: ref_year
+        description: "Calendar year (integer)"
+        tests:
+          - not_null
+      - name: substance
+        description: "Opioids or Stimulants"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Opioids', 'Stimulants']
+      - name: harm_type
+        description: "Deaths, Hospitalizations, Emergency Department (ED) Visits, or Emergency Medical Services (EMS)"
+        tests:
+          - not_null
+      - name: crude_rate_per_100k
+        description: >
+          Crude rate per 100,000 population. Calculated by PHAC as
+          (count / StatsCan population estimate) × 100,000. Not age-standardized.
+        tests:
+          - not_null
+      - name: year_type
+        description: "'calendar' — PHAC substance harms uses calendar years"

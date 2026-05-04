@@ -63,3 +63,29 @@ sources:
             description: "Age-standardized diabetes incidence rate per 100,000"
           - name: sex
             description: "Both sexes, Males, Females"
+
+      - name: phac_substance_harms
+        description: >
+          PHAC Health Infobase — Opioid- and Stimulant-related Harms in Canada.
+          Crude rates per 100,000 for apparent toxicity deaths, ED visits,
+          hospitalizations, and EMS responses by province/territory.
+          Updated quarterly. Terminology follows PHAC/Yukon Coroner convention.
+        columns:
+          - name: substance
+            description: "Opioids or Stimulants"
+          - name: source
+            description: "Harm type: Deaths, Hospitalizations, ED Visits, EMS"
+          - name: specific_measure
+            description: "Breakdown type (Overall numbers, Sex, Age group, etc.)"
+          - name: region
+            description: "Province/territory name or Canada"
+          - name: pruid
+            description: "Province/territory unique identifier"
+          - name: time_period
+            description: "By year or By quarter"
+          - name: year_quarter
+            description: "Year (e.g. 2022) or quarter (e.g. 2022 Q1)"
+          - name: unit
+            description: "Crude rate, Number, or Percent"
+          - name: value
+            description: "The metric value"
