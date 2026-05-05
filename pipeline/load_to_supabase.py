@@ -154,6 +154,42 @@ def load_phac_ccdss_diabetes():
     load_dataframe_to_table(df, "phac_ccdss_diabetes")
 
 
+def load_phac_substance_harms():
+    """Load PHAC Health Infobase — Opioid- and Stimulant-related Harms."""
+    path = RAW_DIR / "SubstanceHarmsData.csv"
+    if not path.exists():
+        log.warning(f"PHAC Substance Harms file not found: {path}")
+        return
+
+    df = pd.read_csv(path)
+    log.info(f"PHAC Substance Harms: {len(df)} rows, columns: {list(df.columns)}")
+    load_dataframe_to_table(df, "phac_substance_harms")
+
+
+def load_phac_cndss_national():
+    """Load PHAC CNDSS national disease data (1991-2023, Male/Female split)."""
+    path = RAW_DIR / "Data.csv"
+    if not path.exists():
+        log.warning(f"PHAC CNDSS national file not found: {path}")
+        return
+
+    df = pd.read_csv(path)
+    log.info(f"PHAC CNDSS National: {len(df)} rows, columns: {list(df.columns)}")
+    load_dataframe_to_table(df, "phac_cndss_national")
+
+
+def load_phac_cndss_provincial():
+    """Load PHAC CNDSS STI provincial data (extracted from PHAC reports)."""
+    path = RAW_DIR / "STI_Provincial_Data.csv"
+    if not path.exists():
+        log.warning(f"PHAC CNDSS provincial file not found: {path}")
+        return
+
+    df = pd.read_csv(path)
+    log.info(f"PHAC CNDSS Provincial: {len(df)} rows, columns: {list(df.columns)}")
+    load_dataframe_to_table(df, "phac_cndss_provincial")
+
+
 def run():
     log.info("=" * 60)
     log.info("LOADING DATA TO SUPABASE")
@@ -163,6 +199,9 @@ def run():
     load_statscan_population()
     load_cihi_mental_health()
     load_phac_ccdss_diabetes()
+    load_phac_substance_harms()
+    load_phac_cndss_national()
+    load_phac_cndss_provincial()
 
     log.info("=" * 60)
     log.info("LOAD COMPLETE")
