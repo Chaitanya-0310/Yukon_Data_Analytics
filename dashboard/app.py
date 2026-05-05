@@ -152,6 +152,120 @@ def load_canada_geojson():
     return geojson
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def compute_forecast(years, values, horizon=3):
+    """
+    Fit ETS (Holt-Winters additive trend, no seasonality) on annual health
+    rate data and return a 3-year forecast with 80% and 95% prediction
+    intervals. Falls back to simple linear extrapolation if ETS fails.
+
+    Returns dict with keys: forecast_years, forecast_values, ci_lower_95,
+    ci_upper_95, ci_lower_80, ci_upper_80, model_name, success.
+    """
+    import numpy as np
+
+    result = {
+        "forecast_years": [],
+        "forecast_values": [],
+        "ci_lower_95": [],
+        "ci_upper_95": [],
+        "ci_lower_80": [],
+        "ci_upper_80": [],
+        "model_name": "None",
+        "success": False,
+    }
+
+    years_arr = np.array(years, dtype=float)
+    vals_arr = np.array(values, dtype=float)
+
+    # Remove NaN
+    mask = ~np.isnan(vals_arr)
+    years_arr = years_arr[mask]
+    vals_arr = vals_arr[mask]
+
+    if len(vals_arr) < 4:
+        return result
+
+    last_year = int(years_arr[-1])
+    fcast_years = [last_year + i for i in range(1, horizon + 1)]
+    result["forecast_years"] = fcast_years
+
+    # Try ETS first
+    try:
+        from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+        model = ExponentialSmoothing(
+            vals_arr, trend="add", seasonal=None,
+            initialization_method="estimated",
+        ).fit(optimized=True)
+        pred = model.forecast(horizon)
+
+        # Residual-based prediction intervals
+        residuals = model.resid
+        sigma = np.std(residuals, ddof=1)
+        steps = np.arange(1, horizon + 1)
+        # Approximate PI: grows with sqrt(step)
+        pi_95 = 1.96 * sigma * np.sqrt(steps)
+        pi_80 = 1.28 * sigma * np.sqrt(steps)
+
+        result["forecast_values"] = list(pred)
+        result["ci_lower_95"] = list(pred - pi_95)
+        result["ci_upper_95"] = list(pred + pi_95)
+        result["ci_lower_80"] = list(pred - pi_80)
+        result["ci_upper_80"] = list(pred + pi_80)
+        result["model_name"] = "Exponential Smoothing (additive trend)"
+        result["success"] = True
+        return result
+
+    except Exception:
+        pass
+
+    # Fallback: ARIMA(1,1,0)
+    try:
+        from statsmodels.tsa.arima.model import ARIMA
+
+        model = ARIMA(vals_arr, order=(1, 1, 0)).fit()
+        forecast_obj = model.get_forecast(steps=horizon)
+        pred = forecast_obj.predicted_mean
+        ci_95 = forecast_obj.conf_int(alpha=0.05)
+        ci_80 = forecast_obj.conf_int(alpha=0.20)
+
+        result["forecast_values"] = list(pred)
+        result["ci_lower_95"] = list(ci_95[:, 0])
+        result["ci_upper_95"] = list(ci_95[:, 1])
+        result["ci_lower_80"] = list(ci_80[:, 0])
+        result["ci_upper_80"] = list(ci_80[:, 1])
+        result["model_name"] = "ARIMA(1,1,0)"
+        result["success"] = True
+        return result
+
+    except Exception:
+        pass
+
+    # Last resort: linear extrapolation
+    try:
+        coeffs = np.polyfit(years_arr, vals_arr, deg=1)
+        pred = np.polyval(coeffs, fcast_years)
+        residuals = vals_arr - np.polyval(coeffs, years_arr)
+        sigma = np.std(residuals, ddof=2)
+        steps = np.arange(1, horizon + 1)
+        pi_95 = 1.96 * sigma * np.sqrt(1 + steps / len(vals_arr))
+        pi_80 = 1.28 * sigma * np.sqrt(1 + steps / len(vals_arr))
+
+        result["forecast_values"] = list(pred)
+        result["ci_lower_95"] = list(pred - pi_95)
+        result["ci_upper_95"] = list(pred + pi_95)
+        result["ci_lower_80"] = list(pred - pi_80)
+        result["ci_upper_80"] = list(pred + pi_80)
+        result["model_name"] = "Linear extrapolation"
+        result["success"] = True
+
+    except Exception:
+        pass
+
+    return result
+
+
 try:
     overview_df, comparison_df, trends_df, substance_df, communicable_df = load_all_data()
 except Exception as e:
@@ -173,10 +287,10 @@ page = st.sidebar.radio(
     [
         "Yukon at a Glance",
         "Provincial Comparison",
-        "Trend Analysis",
         "Substance Use Harms",
         "Communicable Disease",
-        "Data Quality & Methodology",
+        "Trend Analysis",
+        "Executive Summary",
     ],
 )
 
@@ -189,9 +303,224 @@ st.sidebar.caption(
 
 
 # ============================================================================
+# PAGE 0: Executive Summary (for Deputy Ministers and senior leadership)
+# ============================================================================
+if page == "Executive Summary":
+    st.title("Executive Summary — Yukon Health System Performance")
+    st.markdown(
+        "A 30-second briefing on Yukon's position across **5 health indicator domains**, "
+        "drawn from CIHI, PHAC, and Statistics Canada data. "
+        "For deeper analysis, use the pages in the sidebar."
+    )
+
+    # ---- Gather status for each domain ----
+    findings = []
+    status_rows = []
+
+    # Helper: determine traffic light
+    def _traffic_light(comparison_str, trend_str):
+        comp = str(comparison_str).lower() if pd.notna(comparison_str) else ""
+        if "significantly above" in comp or "crisis" in comp:
+            return "red", "Needs Attention"
+        if "above" in comp or "elevated" in comp:
+            return "yellow", "Monitor"
+        return "green", "On Track"
+
+    # 1. ACSC Hospitalizations
+    ov_latest = overview_df[overview_df["is_latest"] == True]
+    if not ov_latest.empty:
+        r = ov_latest.iloc[0]
+        yr = int(r["fiscal_year"])
+        acsc_rate = r.get("acsc_rate")
+        acsc_nat = r.get("acsc_national_rate")
+        acsc_gap = r.get("acsc_gap_to_national")
+        acsc_trend = r.get("acsc_trend_direction", "Stable")
+        acsc_comp = r.get("acsc_national_comparison", "")
+        acsc_rank = r.get("acsc_national_rank")
+
+        if pd.notna(acsc_rate):
+            gap_txt = "{:+.0f} vs national".format(acsc_gap) if pd.notna(acsc_gap) else ""
+            findings.append(
+                "**ACSC Hospitalizations:** Yukon rate is **{:.0f}** per 100k ({}) — {} trend. {}".format(
+                    acsc_rate, acsc_comp, acsc_trend, gap_txt
+                )
+            )
+            color, label = _traffic_light(acsc_comp, acsc_trend)
+            rank_txt = "#{:.0f}/13".format(acsc_rank) if pd.notna(acsc_rank) else "N/A"
+            status_rows.append({
+                "Domain": "ACSC Hospitalizations",
+                "Status": label,
+                "_color": color,
+                "Latest Rate": "{:.0f} per 100k".format(acsc_rate),
+                "vs National": str(acsc_comp) if pd.notna(acsc_comp) else "N/A",
+                "Trend": str(acsc_trend),
+                "Rank": rank_txt,
+            })
+
+        # 2. Mental Health Readmissions
+        mh_rate = r.get("mh_readmission_rate")
+        mh_comp = r.get("mh_national_comparison", "")
+        mh_trend = r.get("mh_trend_direction", "Stable")
+        mh_gap = r.get("mh_gap_to_national")
+        mh_rank = r.get("mh_national_rank")
+
+        if pd.notna(mh_rate):
+            gap_txt = "{:+.1f}pp vs national".format(mh_gap) if pd.notna(mh_gap) else ""
+            findings.append(
+                "**Mental Health Readmissions:** 30-day readmission rate is **{:.1f}%** ({}) — {} trend. {}".format(
+                    mh_rate, mh_comp, mh_trend, gap_txt
+                )
+            )
+            color, label = _traffic_light(mh_comp, mh_trend)
+            rank_txt = "#{:.0f}/13".format(mh_rank) if pd.notna(mh_rank) else "N/A"
+            status_rows.append({
+                "Domain": "Mental Health Readmissions",
+                "Status": label,
+                "_color": color,
+                "Latest Rate": "{:.1f}% (2024)".format(mh_rate),
+                "vs National": str(mh_comp) if pd.notna(mh_comp) else "N/A",
+                "Trend": str(mh_trend),
+                "Rank": rank_txt,
+            })
+
+        # 3. Diabetes Incidence
+        diab_data = overview_df[overview_df["diabetes_incidence_rate"].notna()]
+        if not diab_data.empty:
+            dr = diab_data.iloc[-1]
+            diab_rate = dr.get("diabetes_incidence_rate")
+            diab_comp = dr.get("diabetes_national_comparison", "")
+            diab_trend = dr.get("diabetes_trend_direction", "Stable")
+            diab_gap = dr.get("diabetes_gap_to_national")
+            diab_rank = dr.get("diabetes_national_rank")
+
+            if pd.notna(diab_rate):
+                gap_txt = "{:+.0f} vs national".format(diab_gap) if pd.notna(diab_gap) else ""
+                findings.append(
+                    "**Diabetes Incidence:** Rate is **{:.0f}** per 100k ({}) — {} trend. {}".format(
+                        diab_rate, diab_comp, diab_trend, gap_txt
+                    )
+                )
+                color, label = _traffic_light(diab_comp, diab_trend)
+                rank_txt = "#{:.0f}/13".format(diab_rank) if pd.notna(diab_rank) else "N/A"
+                status_rows.append({
+                    "Domain": "Diabetes Incidence",
+                    "Status": label,
+                    "_color": color,
+                    "Latest Rate": "{:.0f} per 100k".format(diab_rate),
+                    "vs National": str(diab_comp) if pd.notna(diab_comp) else "N/A",
+                    "Trend": str(diab_trend),
+                    "Rank": rank_txt,
+                })
+
+    # 4. Substance Use Harms (Opioid Deaths — headline indicator)
+    yk_opioid_deaths = substance_df[
+        (substance_df["prov_code"] == "YT") &
+        (substance_df["substance"] == "Opioids") &
+        (substance_df["harm_type_label"] == "Apparent Toxicity Deaths")
+    ].sort_values("ref_year")
+    if not yk_opioid_deaths.empty:
+        sr = yk_opioid_deaths.iloc[-1]
+        sub_rate = sr.get("crude_rate_per_100k")
+        sub_sev = sr.get("severity_vs_national", "")
+        sub_trend = sr.get("trend_direction", "Stable")
+        sub_emerg = sr.get("emergency_period_label", "")
+
+        if pd.notna(sub_rate):
+            findings.append(
+                "**Substance Use Harms:** Opioid death rate is **{:.1f}** per 100k — classified as **{}**. "
+                "Period: {}. {} trend.".format(sub_rate, sub_sev, sub_emerg, sub_trend)
+            )
+            sub_comp = sub_sev
+            if "crisis" in str(sub_sev).lower():
+                color, label = "red", "Needs Attention"
+            elif "elevated" in str(sub_sev).lower() or "above" in str(sub_sev).lower():
+                color, label = "yellow", "Monitor"
+            else:
+                color, label = "green", "On Track"
+            status_rows.append({
+                "Domain": "Substance Use (Opioid Deaths)",
+                "Status": label,
+                "_color": color,
+                "Latest Rate": "{:.1f} per 100k".format(sub_rate),
+                "vs National": str(sub_sev),
+                "Trend": str(sub_trend),
+                "Rank": "N/A",
+            })
+
+    # 5. Communicable Disease (highest-severity national disease)
+    cd_national_latest = communicable_df[communicable_df["prov_code"] == "CA"]
+    if not cd_national_latest.empty:
+        latest_cd_yr = cd_national_latest["ref_year"].max()
+        cd_latest = cd_national_latest[cd_national_latest["ref_year"] == latest_cd_yr]
+        # Find worst outbreak status
+        severity_order = ["Severe Outbreak", "Outbreak Detected", "Elevated", "Normal Range"]
+        worst_disease = None
+        worst_status = "Normal Range"
+        for sev in severity_order:
+            match = cd_latest[cd_latest["outbreak_status_label"] == sev]
+            if not match.empty:
+                worst_disease = match.iloc[0]["disease"]
+                worst_status = sev
+                break
+
+        if worst_disease:
+            cd_rate = cd_latest[cd_latest["disease"] == worst_disease].iloc[0]["rate_per_100k"]
+            findings.append(
+                "**Communicable Disease:** Nationally, **{}** has the highest alert status "
+                "(**{}**, rate: {:.1f} per 100k in {}).".format(
+                    worst_disease, worst_status, cd_rate, int(latest_cd_yr)
+                )
+            )
+            if worst_status in ("Severe Outbreak", "Outbreak Detected"):
+                color, label = "red", "Needs Attention"
+            elif worst_status == "Elevated":
+                color, label = "yellow", "Monitor"
+            else:
+                color, label = "green", "On Track"
+            status_rows.append({
+                "Domain": "Communicable Disease",
+                "Status": label,
+                "_color": color,
+                "Latest Rate": "{:.1f} per 100k ({})".format(cd_rate, worst_disease),
+                "vs National": worst_status,
+                "Trend": "National surveillance",
+                "Rank": "N/A",
+            })
+
+    # ---- Top-line alert box ----
+    red_count = sum(1 for s in status_rows if s["_color"] == "red")
+    yellow_count = sum(1 for s in status_rows if s["_color"] == "yellow")
+    green_count = sum(1 for s in status_rows if s["_color"] == "green")
+
+
+    # ---- Indicator Status Table (clean: emoji + domain + rate + comparison + trend) ----
+    if status_rows:
+        status_emoji = {"red": "🔴", "yellow": "🟡", "green": "🟢"}
+
+        header = "|Domain | Latest Rate | vs National | Trend |\n"
+        header += "|--------|-------------|-------------|-------|\n"
+        table_rows = ""
+        for s in status_rows:
+            emoji = status_emoji.get(s["_color"], "⚪")
+            table_rows += "| {} | {} | {} | {} |\n".format(
+                s["Domain"], s["Latest Rate"],
+                s["vs National"], s["Trend"],
+            )
+        st.markdown(header + table_rows)
+
+    st.markdown("---")
+
+    # ---- Key Findings ----
+    st.subheader("Key Findings")
+    for i, finding in enumerate(findings, 1):
+        st.markdown("{}. {}".format(i, finding))
+
+
+
+# ============================================================================
 # PAGE 1: Yukon at a Glance
 # ============================================================================
-if page == "Yukon at a Glance":
+elif page == "Yukon at a Glance":
     st.title("Yukon Health System at a Glance")
     st.markdown(
         "Key performance indicators across three health dimensions: hospital avoidable admissions (ACSC), "
@@ -603,10 +932,14 @@ elif page == "Trend Analysis":
         "Shaded bands show 95% confidence intervals. *(For cross-province rankings, see → Provincial Comparison)*"
     )
 
-    # Indicator selector + display options
+    # Indicator selector + display options (ACSC and MH only — others have dedicated pages)
     col_sel, col_opt = st.columns([2, 1])
     with col_sel:
-        indicators = sorted(trends_df["indicator_name"].unique())
+        allowed_indicators = ["ACSC Hospitalizations", "Mental Health Readmissions"]
+        indicators = [
+            i for i in sorted(trends_df["indicator_name"].unique())
+            if i in allowed_indicators
+        ]
         selected_indicator = st.selectbox("Select indicator", indicators)
     with col_opt:
         show_rolling = st.checkbox("Show 5-year rolling average", value=True)
@@ -803,40 +1136,143 @@ elif page == "Trend Analysis":
 
         st.markdown("---")
 
-        # --- Summary statistics (no ranking columns — that's Provincial Comparison) ---
-        st.subheader("Historical Statistics by Series")
-        stats_df = filtered.copy()
-        stats_rows = []
-        for series in selected_series:
-            s = stats_df[stats_df["series_name"] == series].sort_values("fiscal_year")
-            if s.empty:
-                continue
-            first_yr = int(s.iloc[0]["fiscal_year"])
-            last_yr = int(s.iloc[-1]["fiscal_year"])
-            chg = s.iloc[-1]["rate_value"] - s.iloc[0]["rate_value"]
-            chg_pct = (chg / s.iloc[0]["rate_value"]) * 100 if s.iloc[0]["rate_value"] else 0
-            stats_rows.append({
-                "Series": series,
-                f"Mean ({rate_unit})": f"{s['rate_value'].mean():.1f}",
-                f"Min → Max ({rate_unit})": f"{s['rate_value'].min():.1f} → {s['rate_value'].max():.1f}",
-                f"Change {first_yr}→{last_yr}": f"{chg:+.1f} ({chg_pct:+.1f}%)",
-                "Years": len(s),
-            })
-        if stats_rows:
-            st.dataframe(pd.DataFrame(stats_rows).set_index("Series"), use_container_width=True)
+        # --- 3-Year Predictive Forecast (ML — JD #7) ---
+        if not yk_trend.empty and len(yk_trend) >= 4:
+            show_forecast = st.checkbox("Show 3-year predictive forecast", value=True)
 
-        # --- Raw data download ---
-            
-            pivot = filtered.pivot_table(
-                index="fiscal_year", columns="series_name", values="rate_value"
-            )
-            st.dataframe(pivot)
-            csv = pivot.to_csv()
-            st.download_button(
-                "Download CSV", csv,
-                file_name=f"yukon_{selected_indicator.lower().replace(' ', '_')}_trends.csv",
-                mime="text/csv",
-            )
+            if show_forecast:
+                st.subheader("3-Year Predictive Forecast — Yukon")
+
+                fcast = compute_forecast(
+                    list(yk_trend["fiscal_year"]),
+                    list(yk_trend["rate_value"]),
+                    horizon=3,
+                )
+
+                if fcast["success"]:
+                    fig_fc = go.Figure()
+
+                    # Historical line
+                    fig_fc.add_trace(go.Scatter(
+                        x=yk_trend["fiscal_year"],
+                        y=yk_trend["rate_value"],
+                        mode="lines+markers",
+                        name="Yukon (observed)",
+                        line=dict(color=COLOR_YUKON, width=3),
+                        marker=dict(size=7),
+                    ))
+
+                    # National benchmark if available
+                    if not nat_trend.empty:
+                        fig_fc.add_trace(go.Scatter(
+                            x=nat_trend["fiscal_year"],
+                            y=nat_trend["rate_value"],
+                            mode="lines",
+                            name="Canada (observed)",
+                            line=dict(color=COLOR_NATIONAL, width=2, dash="dot"),
+                        ))
+
+                    fc_years = fcast["forecast_years"]
+                    fc_vals = fcast["forecast_values"]
+
+                    # 95% CI band
+                    fig_fc.add_trace(go.Scatter(
+                        x=fc_years + fc_years[::-1],
+                        y=fcast["ci_upper_95"] + fcast["ci_lower_95"][::-1],
+                        fill="toself",
+                        fillcolor="rgba(220,38,38,0.08)",
+                        line=dict(color="rgba(255,255,255,0)"),
+                        showlegend=True,
+                        name="95% prediction interval",
+                        hoverinfo="skip",
+                    ))
+
+                    # 80% CI band
+                    fig_fc.add_trace(go.Scatter(
+                        x=fc_years + fc_years[::-1],
+                        y=fcast["ci_upper_80"] + fcast["ci_lower_80"][::-1],
+                        fill="toself",
+                        fillcolor="rgba(220,38,38,0.15)",
+                        line=dict(color="rgba(255,255,255,0)"),
+                        showlegend=True,
+                        name="80% prediction interval",
+                        hoverinfo="skip",
+                    ))
+
+                    # Forecast line (dashed)
+                    # Connect last historical point to forecast
+                    connect_yr = [float(yk_trend["fiscal_year"].iloc[-1])] + fc_years
+                    connect_val = [float(yk_trend["rate_value"].iloc[-1])] + fc_vals
+                    fig_fc.add_trace(go.Scatter(
+                        x=connect_yr,
+                        y=connect_val,
+                        mode="lines+markers",
+                        name="Forecast",
+                        line=dict(color=COLOR_YUKON, width=3, dash="dash"),
+                        marker=dict(size=8, symbol="diamond"),
+                    ))
+
+                    # Vertical line separating historical and forecast
+                    last_hist_yr = float(yk_trend["fiscal_year"].iloc[-1])
+                    fig_fc.add_vline(
+                        x=last_hist_yr + 0.5,
+                        line_dash="dot", line_color="#9CA3AF",
+                        annotation_text="Forecast →",
+                        annotation_position="top right",
+                        annotation_font_size=10,
+                        annotation_font_color="#9CA3AF",
+                    )
+
+                    fig_fc.update_layout(
+                        height=480,
+                        yaxis_title="Rate ({})".format(rate_unit),
+                        xaxis_title="Year",
+                        legend=dict(orientation="h", yanchor="bottom", y=-0.28),
+                        xaxis=dict(dtick=1),
+                        margin=dict(l=40, r=20, t=20, b=70),
+                    )
+                    st.plotly_chart(fig_fc, use_container_width=True)
+
+                    # Forecast KPI cards
+                    fc_col1, fc_col2, fc_col3 = st.columns(3)
+                    for idx, col in enumerate([fc_col1, fc_col2, fc_col3]):
+                        with col:
+                            yr = fc_years[idx]
+                            val = fc_vals[idx]
+                            lo = fcast["ci_lower_95"][idx]
+                            hi = fcast["ci_upper_95"][idx]
+                            st.metric(
+                                label="Projected {} ({})".format(yr, rate_unit),
+                                value="{:.1f}".format(val),
+                            )
+                            st.caption("95% PI: {:.1f} – {:.1f}".format(lo, hi))
+
+                    with st.expander("About this forecast"):
+                        n_pts = len(yk_trend)
+                        st.markdown(
+                            "**Model:** {}\n\n"
+                            "**Training data:** {} annual observations ({} – {})\n\n"
+                            "**Forecast horizon:** 3 years\n\n"
+                            "**Prediction intervals:** Shaded bands show 80% (darker) and "
+                            "95% (lighter) prediction intervals. Wider intervals reflect "
+                            "greater uncertainty.\n\n"
+                            "**Caveat:** Yukon's small population (~44,000) means health rates "
+                            "are inherently volatile. Wide prediction intervals are expected and "
+                            "typical of northern/territorial health data. The central estimate "
+                            "represents the best available statistical projection, not a target.".format(
+                                fcast["model_name"],
+                                n_pts,
+                                int(yk_trend["fiscal_year"].iloc[0]),
+                                int(yk_trend["fiscal_year"].iloc[-1]),
+                            )
+                        )
+                else:
+                    st.info(
+                        "Forecast could not be computed — insufficient data points "
+                        "or model did not converge."
+                    )
+
+        # (End of Trend Analysis page)
 
 
 # ============================================================================
