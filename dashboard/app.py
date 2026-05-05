@@ -18,10 +18,10 @@ Indicators:
 Pages:
   1. Yukon at a Glance — headline KPIs across all indicators
   2. Provincial Comparison — rankings by indicator
-  3. Trend Analysis — time series with confidence intervals
-  4. Substance Use Harms — opioid/stimulant emergency monitoring
-  5. Communicable Disease — outbreak detection & STI surveillance
-  6. Data Quality & Methodology — pipeline info and data notes
+  3. Substance Use Harms — opioid/stimulant emergency monitoring
+  4. Communicable Disease — outbreak detection & STI surveillance
+  5. Trend Analysis — time series with confidence intervals + ML forecast
+  6. Executive Summary — auto-generated findings and data source notes
 """
 from __future__ import annotations
 
@@ -291,6 +291,7 @@ page = st.sidebar.radio(
         "Communicable Disease",
         "Trend Analysis",
         "Executive Summary",
+        "Data Quality & Methodology",
     ],
 )
 
@@ -2222,15 +2223,16 @@ elif page == "Communicable Disease":
 
 
 # ============================================================================
-# PAGE 6: Data Quality & Methodology
+# PAGE 7: Data Quality & Methodology
 # ============================================================================
 elif page == "Data Quality & Methodology":
-    st.title("Data Quality & Methodology")
+    st.title("🔬 Data Quality & Methodology")
     st.markdown(
         "This dashboard is powered by a **dbt (data build tool)** pipeline "
         "that stages, transforms, tests, and serves data from a PostgreSQL database (Supabase)."
     )
 
+    # ── Data Sources ──────────────────────────────────────────────────────────
     st.subheader("Data Sources — 3 Federal Agencies")
     st.markdown("""
 | Source | Agency | Indicator | Rate Type | Coverage |
@@ -2243,6 +2245,7 @@ elif page == "Data Quality & Methodology":
 | **Table 17-10-0005-01** | Statistics Canada | Population Estimates | Count | 1971–2024, all PT |
     """)
 
+    # ── Pipeline Architecture ─────────────────────────────────────────────────
     st.subheader("Pipeline Architecture")
     st.markdown("""
 ```
@@ -2256,71 +2259,41 @@ Raw CSVs  -->  Supabase (raw)  -->  dbt staging  -->  dbt intermediate  -->  dbt
                                      stg_statscan__pop
 ```
 
-- **7 raw tables** from 3 agencies loaded via `load_to_supabase.py`
+- **7 raw tables** loaded via `load_to_supabase.py`
 - **6 staging models** — clean, standardize, map province codes, handle suppressed values
-- **6 intermediate models** — link with population, calculate YoY changes, rolling averages, national gap, rankings
-- **5 mart models** — purpose-built for each dashboard page, union all indicators
+- **6 intermediate models** — link population, YoY changes, rolling averages, national gap, rankings
+- **5 mart models** — purpose-built for each dashboard page
     """)
 
-    st.subheader("Automated Quality Tests")
-    st.markdown(
-        "The dbt pipeline runs **73 automated tests** on every build, including:"
-    )
-    st.markdown("""
-- `not_null` — Critical columns (prov_code, fiscal_year, rates) are never null across all models
-- `unique` — Fiscal year is unique per Yukon overview row
-- `accepted_values` — Province codes match valid Canadian jurisdictions; indicator names match expected set; substance types are Opioids/Stimulants
-- `assert_yukon_present_in_all_marts` — Singular test that Yukon is never accidentally dropped from any mart
-- Cross-model consistency checks between staging, intermediate, and marts
-    """)
 
+    # ── Two-column: Data Handling + Key Indicators ────────────────────────────
     col1, col2 = st.columns(2)
+
     with col1:
         st.subheader("Data Handling Notes")
         st.markdown("""
-- **Suppressed values:** CIHI suppresses counts < 5 for privacy. PHAC suppresses counts < 10 or CV > 33.3%. Set to NULL in the pipeline.
-- **Confidence intervals:** 95% CIs provided by CIHI and PHAC. Wide CIs for territories reflect small populations.
-- **Fiscal years:** Canadian health data uses April-March fiscal years (e.g., 2022-2023). Labeled by start year.
+- **Confidence intervals:** 95% CIs from CIHI and PHAC. Wide CIs for territories reflect small populations.
+- **Fiscal years:** April–March (e.g., 2022–2023 labeled as 2022).
 - **Age standardization:** CIHI uses 2011 Canadian population; PHAC CCDSS uses 2021 Canadian population.
-- **COVID-19 impact:** PHAC flags 2020-2023 fiscal years with asterisks. Healthcare-seeking behaviour changes may affect estimates.
-- **Yukon data availability:** PHAC diabetes data starts at 2010 for Yukon. Earlier years were not collected.
+- **COVID-19 impact:** 2020–2023 data flagged — healthcare-seeking behaviour changes may affect estimates.
+- **Yukon data availability:** PHAC diabetes data starts 2010 for Yukon; earlier years not collected.
         """)
 
     with col2:
         st.subheader("Key Indicators")
         st.markdown("""
 **ACSC Hospitalizations** *(CIHI)*
-Avoidable hospitalizations for conditions manageable in primary care (diabetes, COPD, asthma, heart failure). Higher = gaps in primary care access.
+Avoidable hospitalizations for conditions manageable in primary care. Higher = gaps in primary care access.
 
 **30-Day Mental Health Readmissions** *(CIHI)*
-Percentage of patients readmitted within 30 days of discharge from a mental health or substance use hospitalization. Higher = inadequate community follow-up.
+Patients readmitted within 30 days of a mental health discharge. Higher = inadequate community follow-up.
 
 **Diabetes Incidence** *(PHAC CCDSS)*
-New diabetes cases per 100,000 population per year, from linked administrative data. Reflects chronic disease burden and prevention effectiveness.
+New diabetes cases per 100,000/year from linked administrative data. Reflects chronic disease burden.
 
 **Substance Use Harms** *(PHAC Health Infobase)*
-Apparent opioid/stimulant toxicity deaths and ED visits per 100,000. Yukon declared a Substance Use Health Emergency on Jan 20, 2022. Terminology follows PHAC/Yukon Coroner convention.
+Apparent opioid/stimulant toxicity deaths and ED visits per 100,000. Yukon declared a Substance Use Health Emergency Jan 20, 2022.
 
-**Communicable Disease Surveillance** *(PHAC CNDSS)*
-National trends (2000–2023) and provincial snapshots for STIs (Chlamydia, Gonorrhea, Infectious Syphilis) and enteric diseases (Giardiasis, Salmonellosis). Statistical outbreak detection using mean + 2×SD alarm from epidemiological surveillance methodology.
+**Communicable Disease** *(PHAC CNDSS)*
+National trends (2000–2023) for STIs and enteric diseases. Outbreak detection via mean + 2×SD alarm.
         """)
-
-    st.subheader("Reproducibility")
-    st.markdown("""
-```bash
-# Load raw data to Supabase
-python pipeline/load_to_supabase.py
-
-# Build all 17 dbt models
-python run_dbt.py run
-
-# Run all 73 quality tests
-python run_dbt.py test
-
-# Generate dbt documentation
-python run_dbt.py docs generate
-
-# Launch dashboard
-streamlit run dashboard/app.py
-```
-    """)
