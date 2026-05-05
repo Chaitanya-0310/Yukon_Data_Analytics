@@ -125,6 +125,11 @@ Outputs 80% and 95% prediction intervals displayed as shaded bands.
 
 ## dbt Model Inventory
 
+Data Lineage 
+
+<img width="1845" height="930" alt="image" src="https://github.com/user-attachments/assets/6aa312b4-e046-4340-8f6b-77a03a64d953" />
+
+
 ```
 staging/ (6 models)
 ├── stg_cihi__acsc
